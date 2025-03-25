@@ -14,7 +14,7 @@ SECRET_KEY = 'django-insecure-yoursecretkeyhere'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['.vercel.app', '.now.sh', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['career-guiding-backend.vercel.app', 'localhost', '127.0.0.1']
 
 # Application definition
 INSTALLED_APPS = [
@@ -67,6 +67,14 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+CORS_ALLOWED_ORIGINS = [
+    "https://career-guidance-frontend-alpha.vercel.app",
+    "http://localhost:3000",  # If using React locally
+]
+CORS_ALLOW_METHODS = ["GET", "POST", "OPTIONS"]
+CORS_ALLOW_HEADERS = ["content-type", "authorization"]
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
