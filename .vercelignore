@@ -1,0 +1,5 @@
+*.log
+*.pyc
+db.sqlite3
+/staticfiles
+__pycache__/
