@@ -223,57 +223,227 @@ def generate_roadmap(request):
         })
 def identify_required_skills_with_ai(goal):
     """Identify skills required for a career goal using AI embeddings"""
-    import numpy as np
     from sentence_transformers import SentenceTransformer
+    import numpy as np
     
-    # Load embedding model (you'll need to pip install sentence-transformers)
+    # Load model
     model = SentenceTransformer('all-MiniLM-L6-v2')
     
-    # Preprocess input
-    goal = goal.strip().lower()
+    goal_lower = goal.lower().strip()
+    if not goal_lower:
+        return {"error": "Please provide a career goal"}
     
-    if not goal:
-        return TECH_DOMAINS["web_development"][:10]  # Default for empty input
-    
-    # Get embeddings for the goal
-    goal_embedding = model.encode([goal])[0]
-    
-    # Prepare domain embeddings
+    # Get embeddings for domains
     domains = list(TECH_DOMAINS.keys())
     domain_texts = [domain.replace('_', ' ') for domain in domains]
     domain_embeddings = model.encode(domain_texts)
     
-    # Calculate similarity scores
+    # Get embedding for goal
+    goal_embedding = model.encode([goal_lower])[0]
+    
+    # Find most similar domain
     similarities = np.dot(domain_embeddings, goal_embedding) / (
         np.linalg.norm(domain_embeddings, axis=1) * np.linalg.norm(goal_embedding)
     )
-    
-    # Find the most similar domain
     most_similar_idx = np.argmax(similarities)
-    most_similar_domain = domains[most_similar_idx]
-    similarity_score = similarities[most_similar_idx]
+    most_similar_score = similarities[most_similar_idx]
     
-    # If similarity is too low, try a more detailed approach with descriptions
-    if similarity_score < 0.6:
-        domain_descriptions = [
-            f"{domain.replace('_', ' ')}: Focuses on {', '.join(TECH_DOMAINS[domain][:5])}"
-            for domain in domains
-        ]
-        desc_embeddings = model.encode(domain_descriptions)
-        desc_similarities = np.dot(desc_embeddings, goal_embedding) / (
-            np.linalg.norm(desc_embeddings, axis=1) * np.linalg.norm(goal_embedding)
-        )
-        most_similar_idx = np.argmax(desc_similarities)
-        most_similar_domain = domains[most_similar_idx]
-        similarity_score = desc_similarities[most_similar_idx]
-    
-    # If still low similarity, return message about no clear match
-    if similarity_score < 0.4:
-        return {"error": f"No clear career path found for '{goal}'. Please try a more specific goal."}
+    if most_similar_score < 0.4:
+        return {"error": f"Could not identify relevant skills for '{goal}'"}
         
-    # Return skills for the most similar domain
-    return TECH_DOMAINS[most_similar_domain]
+    return TECH_DOMAINS[domains[most_similar_idx]]
+def get_template_advice(career_goal, experience_level):
+    """Get career advice using templates when AI methods fail"""
+    
+    # Dictionary of template advice for common career goals
+    templates = {
+        "web": {
+            "summary": "Web development offers excellent opportunities for growth with strong demand across industries.",
+            "next_steps": [
+                "Build a portfolio of web projects",
+                "Learn popular frameworks like React or Angular",
+                "Practice responsive and accessible design"
+            ],
+            "trends": [
+                "Progressive Web Apps are becoming increasingly important",
+                "JAMstack architecture continues to gain popularity"
+            ],
+            "timeline": "6-9 months to job readiness with consistent practice."
+        },
+        "data": {
+            "summary": "Data science and analytics remain one of the highest-demand tech fields with excellent compensation.",
+            "next_steps": [
+                "Build a portfolio of data analysis projects",
+                "Master Python libraries like Pandas and NumPy",
+                "Learn machine learning fundamentals"
+            ],
+            "trends": [
+                "AutoML tools are making model creation more accessible",
+                "Data ethics and responsible AI are becoming essential knowledge"
+            ],
+            "timeline": "9-12 months to entry-level job readiness."
+        },
+        "design": {
+            "summary": "Design roles combine creativity with technical skills, with growing demand for UI/UX specialists.",
+            "next_steps": [
+                "Create a professional design portfolio",
+                "Master industry tools like Figma or Adobe XD",
+                "Learn design principles and user research methods"
+            ],
+            "trends": [
+                "Design systems are becoming central to product development",
+                "Accessibility expertise is increasingly valuable"
+            ],
+            "timeline": "8-12 months to develop professional-level skills."
+        },
+        "art": {
+            "summary": "Digital art fields offer opportunities in entertainment, advertising, and product design.",
+            "next_steps": [
+                "Build a diverse portfolio showcasing your style",
+                "Master relevant digital tools like Procreate or Photoshop",
+                "Develop a social media presence to showcase your work"
+            ],
+            "trends": [
+                "3D and motion design skills are increasingly valuable",
+                "NFT art markets are creating new opportunities for artists"
+            ],
+            "timeline": "12-18 months to develop professional-level skills."
+        },
+        "mobile": {
+            "summary": "Mobile development remains in high demand with opportunities for both native and cross-platform developers.",
+            "next_steps": [
+                "Learn Swift for iOS or Kotlin for Android development",
+                "Consider cross-platform frameworks like Flutter or React Native",
+                "Build sample apps for your portfolio"
+            ],
+            "trends": [
+                "Super apps that combine multiple services are gaining popularity",
+                "Privacy features are becoming increasingly important"
+            ],
+            "timeline": "6-12 months to job readiness with focused practice."
+        }
+    }
+    
+    # Find the matching template based on career goal keywords
+    goal_lower = career_goal.lower()
+    matched_template = None
+    
+    if "web" in goal_lower or "front" in goal_lower or "back" in goal_lower:
+        matched_template = templates["web"]
+    elif "data" in goal_lower or "analy" in goal_lower or "science" in goal_lower:
+        matched_template = templates["data"]
+    elif "design" in goal_lower or "ui" in goal_lower or "ux" in goal_lower:
+        matched_template = templates["design"]
+    elif "art" in goal_lower or "illustra" in goal_lower or "draw" in goal_lower:
+        matched_template = templates["art"]
+    elif "mobile" in goal_lower or "app" in goal_lower or "android" in goal_lower or "ios" in goal_lower:
+        matched_template = templates["mobile"]
+    else:
+        # Default to web if no match
+        matched_template = templates["web"]
+    
+    # Adjust timeline based on experience level
+    timeline = matched_template["timeline"]
+    if experience_level == "beginner":
+        # Add 3 months for beginners
+        months = timeline.split(' ')[0].split('-')
+        min_months = int(months[0]) + 3
+        max_months = int(months[1]) + 3
+        timeline = f"{min_months}-{max_months} months to job readiness."
+    elif experience_level == "advanced":
+        # Subtract 3 months for advanced
+        months = timeline.split(' ')[0].split('-')
+        min_months = max(int(months[0]) - 3, 2)  # Minimum 2 months
+        max_months = max(int(months[1]) - 3, 4)  # Minimum 4 months
+        timeline = f"{min_months}-{max_months} months to job readiness."
+    
+    # Return the customized template
+    return {
+        "summary": matched_template["summary"],
+        "next_steps": matched_template["next_steps"],
+        "trends": matched_template["trends"],
+        "timeline": timeline
+    }
 
+def get_career_advice_local_llm(career_goal, experience_level):
+    """Get career advice using Ollama local LLM"""
+    try:
+        import ollama
+        
+        # Create prompt
+        prompt = f"""
+        Act as a career advisor. Give advice for someone pursuing a career in {career_goal} 
+        with {experience_level} experience level. 
+        
+        Include:
+        1. A brief summary of the field
+        2. Three specific next steps 
+        3. Two emerging trends
+        4. Timeline for skill development
+        
+        Format as JSON with keys: summary, next_steps, trends, timeline
+        """
+        
+        # Run inference with Ollama
+        response = ollama.generate(model='llama2', prompt=prompt)
+        
+        # Parse JSON response (you'll need to handle potential format issues)
+        import json
+        import re
+        
+        # Find JSON content between curly braces
+        json_pattern = r'\{.*\}'
+        json_match = re.search(json_pattern, response['response'], re.DOTALL)
+        
+        if json_match:
+            advice_json = json.loads(json_match.group(0))
+            return advice_json
+        else:
+            # Fallback to template-based response
+            return get_template_advice(career_goal, experience_level)
+            
+    except Exception as e:
+        print(f"Local LLM error: {e}")
+        # Fallback to the template matching system
+        return get_ai_personalized_advice(career_goal, [], experience_level)    # Break down your large functions into smaller ones
+
+# This helper function can be called by your main roadmap generator
+def get_learning_resources_for_skills(skills):
+    """Get learning resources for a set of skills (separate from main function)"""
+    resources = {}
+    for skill in skills[:3]:  # Limit to top 3 skills
+        resources[skill] = fetch_skill_resources(skill)
+    return resources
+
+# Separate the trends functionality
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_career_trends(request):
+    """API endpoint for career trends only"""
+    try:
+        industry = request.GET.get('industry', 'technology')
+        trends = fetch_career_trends(industry)
+        return JsonResponse({"success": True, "trends": trends})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+def get_career_advice_huggingface(career_goal, experience_level):
+    """Get career advice using Hugging Face free inference API"""
+    import requests
+    
+    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-xl"
+    headers = {"Authorization": "Bearer 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"}  # Get free API key from huggingface.co
+    
+    # Create prompt
+    prompt = f"Give career advice for someone who wants to be a {career_goal} with {experience_level} experience level. Include 3 next steps and 2 industry trends."
+    
+    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+    
+    if response.status_code == 200:
+        return {"advice": response.json()[0]["generated_text"]}
+    else:
+        return {"advice": f"Career advisors suggest focusing on key {career_goal} skills and building a portfolio of projects."}
 
 def recommend_additional_skills_with_ai(base_skills, career_goal):
     """Use AI to recommend additional skills beyond the predefined lists"""
@@ -1120,22 +1290,37 @@ def get_career_trends(request):
         return JsonResponse({"success": False, "error": str(e)})
 
 # Helper functions
-def identify_required_skills(goal):
-    """Identify skills required for a career goal"""
-    goal = goal.lower()
-    required_skills = []
+def identify_required_skills_with_ai(goal):
+    """Identify skills required for a career goal using AI embeddings"""
+    from sentence_transformers import SentenceTransformer
+    import numpy as np
     
-    # Check which domain the goal belongs to
-    for domain, skills in TECH_DOMAINS.items():
-        domain_keywords = domain.split('_')
-        if any(keyword in goal for keyword in domain_keywords):
-            required_skills.extend(skills)
+    # Load model
+    model = SentenceTransformer('all-MiniLM-L6-v2')
     
-    # If no specific domain matched, return a default set
-    if not required_skills:
-        required_skills = TECH_DOMAINS["web_development"]
+    goal_lower = goal.lower().strip()
+    if not goal_lower:
+        return {"error": "Please provide a career goal"}
     
-    return required_skills
+    # Get embeddings for domains
+    domains = list(TECH_DOMAINS.keys())
+    domain_texts = [domain.replace('_', ' ') for domain in domains]
+    domain_embeddings = model.encode(domain_texts)
+    
+    # Get embedding for goal
+    goal_embedding = model.encode([goal_lower])[0]
+    
+    # Find most similar domain
+    similarities = np.dot(domain_embeddings, goal_embedding) / (
+        np.linalg.norm(domain_embeddings, axis=1) * np.linalg.norm(goal_embedding)
+    )
+    most_similar_idx = np.argmax(similarities)
+    most_similar_score = similarities[most_similar_idx]
+    
+    if most_similar_score < 0.4:
+        return {"error": f"Could not identify relevant skills for '{goal}'"}
+        
+    return TECH_DOMAINS[domains[most_similar_idx]]
 
 def create_personalized_roadmap(user_skills, goal, required_skills, experience):
     """Create a personalized career roadmap"""
