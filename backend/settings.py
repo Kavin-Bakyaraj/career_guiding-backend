@@ -5,14 +5,20 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+import os
+
+print("SECRET_KEY:", os.getenv("SECRET_KEY"))  # Should print your key in logs
+print("YOUTUBE_API_KEY:", os.getenv("YOUTUBE_API_KEY"))  # Should print key in logs
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-yoursecretkeyhere'
+SECRET_KEY = 'kavin'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['career-guiding-backend.vercel.app', 'localhost', '127.0.0.1']
 
