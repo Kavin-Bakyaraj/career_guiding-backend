@@ -35,12 +35,133 @@ TECH_DOMAINS = {
     "animation": ["After Effects", "Character Animation", "Motion Graphics", "Storyboarding", "3D Animation", "2D Animation", "Rigging", "Animation Principles"]
 }
 
-
+def get_ai_personalized_advice(career_goal, user_skills, experience_level):
+    """Generate personalized career advice using AI embeddings"""
+    from sentence_transformers import SentenceTransformer, util
+    import torch
+    import numpy as np
+    
+    # Load model once and cache results for common queries
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # Format the user's profile
+    user_profile = f"Career goal: {career_goal}. Experience: {experience_level}. Skills: {', '.join(user_skills)}"
+    
+    # Create a database of career advice templates based on different profiles
+    advice_templates = [
+        {
+            "profile": "Career goal: web development. Experience: beginner. Skills: HTML, CSS",
+            "summary": "Web development offers excellent opportunities for beginners. Front-end skills are in high demand, especially with the increasing importance of responsive and accessible web design.",
+            "next_steps": [
+                "Build a portfolio website to showcase your work",
+                "Learn JavaScript fundamentals and a popular framework like React",
+                "Contribute to open-source projects to gain practical experience"
+            ],
+            "trends": [
+                "JAMstack architecture is growing in popularity",
+                "WebAssembly is expanding web capabilities"
+            ],
+            "timeline": "With your current skills as a beginner, expect 6-9 months to job readiness."
+        },
+        {
+            "profile": "Career goal: data science. Experience: intermediate. Skills: Python, SQL, Pandas",
+            "summary": "Data Science remains one of the most in-demand fields. Your intermediate experience with Python and data manipulation puts you in a good position.",
+            "next_steps": [
+                "Develop expertise in machine learning algorithms and techniques",
+                "Create end-to-end data science projects for your portfolio",
+                "Learn cloud platforms for deploying ML models (AWS, GCP, or Azure)"
+            ],
+            "trends": [
+                "MLOps is becoming essential for deploying models at scale",
+                "AutoML tools are streamlining parts of the data science workflow"
+            ],
+            "timeline": "With your current skills as an intermediate practitioner, expect 4-6 months to advance to the next level."
+        },
+        {
+            "profile": "Career goal: graphic design. Experience: beginner. Skills: Adobe Photoshop",
+            "summary": "Graphic design is a competitive but rewarding field. Starting with Photoshop knowledge gives you a foundation, but you'll need to develop a broader skillset.",
+            "next_steps": [
+                "Learn additional design tools like Illustrator and InDesign",
+                "Develop a strong understanding of typography and color theory",
+                "Create a portfolio showcasing various design styles and projects"
+            ],
+            "trends": [
+                "Motion design skills are increasingly valued for digital platforms",
+                "UX/UI design knowledge can expand your job opportunities"
+            ],
+            "timeline": "With your current skills as a beginner, expect 9-12 months to professional proficiency."
+        },
+        {
+            "profile": "Career goal: UI UX design. Experience: intermediate. Skills: Figma, Adobe XD, wireframing",
+            "summary": "UI/UX design continues to be in high demand as companies prioritize user experience. Your intermediate skills with industry-standard tools provide a solid foundation.",
+            "next_steps": [
+                "Develop expertise in user research and usability testing",
+                "Create case studies that showcase your end-to-end design process",
+                "Learn about design systems and component libraries"
+            ],
+            "trends": [
+                "Design systems are becoming standard for scalable product design",
+                "Accessibility knowledge is increasingly valued and required"
+            ],
+            "timeline": "With your current skills as an intermediate designer, expect 3-6 months to advance to a senior level."
+        },
+        {
+            "profile": "Career goal: mobile development. Experience: advanced. Skills: Swift, iOS, Flutter",
+            "summary": "Your advanced skills in mobile development position you well in a market where quality mobile experiences are critical. Cross-platform and native skills are both valuable.",
+            "next_steps": [
+                "Master architectural patterns like Clean Architecture or MVVM",
+                "Develop expertise in performance optimization and app security",
+                "Consider specializing in emerging areas like AR/VR mobile experiences"
+            ],
+            "trends": [
+                "Super apps that combine multiple services are gaining popularity",
+                "Privacy features and transparency are becoming competitive advantages"
+            ],
+            "timeline": "With your advanced skills, expect 3-4 months to reach expert/leadership level."
+        }
+    ]
+    
+    # Get embeddings for all templates and the user profile
+    profile_embedding = model.encode([user_profile])[0]
+    
+    # Get embeddings for all advice templates
+    template_profiles = [t["profile"] for t in advice_templates]
+    template_embeddings = model.encode(template_profiles)
+    
+    # Calculate similarities
+    similarities = np.dot(template_embeddings, profile_embedding) / (
+        np.linalg.norm(template_embeddings, axis=1) * np.linalg.norm(profile_embedding)
+    )
+    
+    # Find the most similar template
+    most_similar_idx = np.argmax(similarities)
+    most_similar_template = advice_templates[most_similar_idx]
+    
+    # Extract advice from the most similar template
+    advice = {
+        "summary": most_similar_template["summary"],
+        "next_steps": most_similar_template["next_steps"],
+        "trends": most_similar_template["trends"],
+        "timeline": most_similar_template["timeline"]
+    }
+    
+    # Customize the advice by adding skill-specific information
+    if user_skills:
+        primary_skill = user_skills[0]
+        advice["summary"] = advice["summary"].replace("skills", f"{primary_skill} skills")
+    
+    # Adjust timeline based on experience level
+    if experience_level == "beginner" and "beginner" not in most_similar_template["profile"]:
+        advice["timeline"] = advice["timeline"].replace("3-6", "6-9").replace("4-6", "6-9")
+    elif experience_level == "advanced" and "advanced" not in most_similar_template["profile"]:
+        advice["timeline"] = advice["timeline"].replace("6-9", "3-6").replace("9-12", "6-9")
+    
+    return advice
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def generate_roadmap(request):
-    """Generate personalized career roadmap based on industry data sources"""
+    """Generate personalized career roadmap using AI"""
     try:
         # Parse the request data
         data = json.loads(request.body)
@@ -53,11 +174,24 @@ def generate_roadmap(request):
         career_goal = data.get('goal', '').lower()
         experience_level = data.get('experienceLevel', 'beginner')
         
-        # Generate a dynamic roadmap based on career trends data
-        required_skills = identify_required_skills(career_goal)
+        # Generate a dynamic roadmap based on AI analysis
+        required_skills = identify_required_skills_with_ai(career_goal)
+        
+        # Check if we got an error
+        if isinstance(required_skills, dict) and 'error' in required_skills:
+            return JsonResponse({
+                'success': False,
+                'error': required_skills['error']
+            })
+        
+        # Get AI-recommended additional skills
+        additional_skills = recommend_additional_skills_with_ai(required_skills, career_goal)
         
         # Create phases based on the required skills and user experience
         phases = generate_career_phases(required_skills, current_skills, experience_level, career_goal)
+        
+        # Get personalized AI advice
+        personalized_advice = get_ai_personalized_advice(career_goal, current_skills, experience_level)
         
         # Calculate estimated time to completion
         estimated_completion = calculate_estimated_completion(phases, experience_level)
@@ -66,8 +200,10 @@ def generate_roadmap(request):
         roadmap = {
             'career_goal': career_goal,
             'required_skills': required_skills,
+            'additional_recommended_skills': additional_skills,
             'estimated_completion': estimated_completion,
-            'phases': phases
+            'phases': phases,
+            'ai_advice': personalized_advice
         }
         
         return JsonResponse({
@@ -76,6 +212,7 @@ def generate_roadmap(request):
         })
     except Exception as e:
         # Get the full traceback for debugging
+        import traceback
         error_traceback = traceback.format_exc()
         print(f"Error in generate_roadmap: {e}")
         print(error_traceback)
@@ -84,72 +221,98 @@ def generate_roadmap(request):
             'success': False,
             'error': str(e)
         })
+def identify_required_skills_with_ai(goal):
+    """Identify skills required for a career goal using AI embeddings"""
+    import numpy as np
+    from sentence_transformers import SentenceTransformer
+    
+    # Load embedding model (you'll need to pip install sentence-transformers)
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # Preprocess input
+    goal = goal.strip().lower()
+    
+    if not goal:
+        return TECH_DOMAINS["web_development"][:10]  # Default for empty input
+    
+    # Get embeddings for the goal
+    goal_embedding = model.encode([goal])[0]
+    
+    # Prepare domain embeddings
+    domains = list(TECH_DOMAINS.keys())
+    domain_texts = [domain.replace('_', ' ') for domain in domains]
+    domain_embeddings = model.encode(domain_texts)
+    
+    # Calculate similarity scores
+    similarities = np.dot(domain_embeddings, goal_embedding) / (
+        np.linalg.norm(domain_embeddings, axis=1) * np.linalg.norm(goal_embedding)
+    )
+    
+    # Find the most similar domain
+    most_similar_idx = np.argmax(similarities)
+    most_similar_domain = domains[most_similar_idx]
+    similarity_score = similarities[most_similar_idx]
+    
+    # If similarity is too low, try a more detailed approach with descriptions
+    if similarity_score < 0.6:
+        domain_descriptions = [
+            f"{domain.replace('_', ' ')}: Focuses on {', '.join(TECH_DOMAINS[domain][:5])}"
+            for domain in domains
+        ]
+        desc_embeddings = model.encode(domain_descriptions)
+        desc_similarities = np.dot(desc_embeddings, goal_embedding) / (
+            np.linalg.norm(desc_embeddings, axis=1) * np.linalg.norm(goal_embedding)
+        )
+        most_similar_idx = np.argmax(desc_similarities)
+        most_similar_domain = domains[most_similar_idx]
+        similarity_score = desc_similarities[most_similar_idx]
+    
+    # If still low similarity, return message about no clear match
+    if similarity_score < 0.4:
+        return {"error": f"No clear career path found for '{goal}'. Please try a more specific goal."}
+        
+    # Return skills for the most similar domain
+    return TECH_DOMAINS[most_similar_domain]
 
-def identify_required_skills(goal):
-    """Identify skills required for a career goal based on job data"""
-    goal_lower = goal.lower()
-    
-    # Direct domain matching first (e.g., "graphic design" -> graphic_design)
-    for domain, skills in TECH_DOMAINS.items():
-        domain_name = domain.replace('_', ' ')
-        if domain_name in goal_lower:
-            return skills[:10]  # Return top skills for this domain
-    
-    # If no direct domain match, check for keywords
-    # Art & Design fields
-    if any(keyword in goal_lower for keyword in ['artist', 'art', 'paint', 'draw']):
-        if 'digital' in goal_lower:
-            return TECH_DOMAINS["digital_art"]
-        return TECH_DOMAINS["traditional_art"]
-    
-    elif any(keyword in goal_lower for keyword in ['ui', 'interface']):
-        return TECH_DOMAINS["ui_design"]
-    
-    elif any(keyword in goal_lower for keyword in ['ux', 'user experience']):
-        return TECH_DOMAINS["ux_design"]
-    
-    elif any(keyword in goal_lower for keyword in ['graphic', 'design', 'designer']):
-        return TECH_DOMAINS["graphic_design"]
-    
-    elif any(keyword in goal_lower for keyword in ['motion', 'animation', 'animate']):
-        return TECH_DOMAINS["animation"]
-    
-    # Tech fields - keep these checks for backward compatibility
-    elif any(keyword in goal_lower for keyword in ['web', 'frontend', 'backend']):
-        return TECH_DOMAINS["web_development"]
-    
-    elif any(keyword in goal_lower for keyword in ['data', 'analy', 'scien']):
-        return TECH_DOMAINS["data_science"]
-    
-    elif any(keyword in goal_lower for keyword in ['devops', 'cloud', 'infra']):
-        return TECH_DOMAINS["devops"]
-    
-    elif any(keyword in goal_lower for keyword in ['mobile', 'app', 'android', 'ios']):
-        return TECH_DOMAINS["mobile_development"]
-    
-    elif any(keyword in goal_lower for keyword in ['security', 'cyber', 'hack']):
-        return TECH_DOMAINS["cybersecurity"]
-    
-    elif 'game' in goal_lower:
-        # Custom game development skills
-        return ["C#", "Unity", "C++", "Unreal Engine", "Game Design", "3D Modeling", "Animation", "Physics"]
-    
-    # If no match at all, try a more generic match based on what's closest
-    for keyword in goal_lower.split():
-        for domain, skills in TECH_DOMAINS.items():
-            domain_words = domain.replace('_', ' ').split()
-            if any(domain_word.startswith(keyword) for domain_word in domain_words):
-                return skills
-    
-    # If nothing matches, make an educated guess based on what they provided as current skills
-    if any(skill.lower() in ['figma', 'sketch', 'xd', 'ui', 'ux'] for skill in current_skills):
-        return TECH_DOMAINS["ui_design"]
-    elif any(skill.lower() in ['photoshop', 'illustrator', 'indesign'] for skill in current_skills):
-        return TECH_DOMAINS["graphic_design"]
-    
-    # Last resort default
-    return TECH_DOMAINS["graphic_design"] if "design" in goal_lower else TECH_DOMAINS["traditional_art"]
 
+def recommend_additional_skills_with_ai(base_skills, career_goal):
+    """Use AI to recommend additional skills beyond the predefined lists"""
+    from sentence_transformers import SentenceTransformer, util
+    import torch
+    
+    # You would populate this with more skills from external sources
+    all_skills = set()
+    for domain_skills in TECH_DOMAINS.values():
+        all_skills.update(domain_skills)
+    all_skills = list(all_skills)
+    
+    # Load model
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # Get embeddings
+    goal_embedding = model.encode([career_goal])[0]
+    base_skills_embeddings = model.encode(base_skills)
+    all_skills_embeddings = model.encode(all_skills)
+    
+    # Calculate centroid of base skills
+    if len(base_skills) > 0:
+        centroid = torch.mean(torch.tensor(base_skills_embeddings), dim=0)
+    else:
+        centroid = torch.tensor(goal_embedding)
+    
+    # Calculate similarities between centroid and all skills
+    similarities = util.pytorch_cos_sim(centroid.unsqueeze(0), torch.tensor(all_skills_embeddings))[0]
+    
+    # Get top 5 skills not in base_skills
+    additional_skills = []
+    for idx in similarities.argsort(descending=True):
+        skill = all_skills[idx]
+        if skill not in base_skills:
+            additional_skills.append(skill)
+            if len(additional_skills) >= 5:
+                break
+                
+    return additional_skills
 
 
 def generate_career_phases(required_skills, current_skills, experience_level, career_goal):
