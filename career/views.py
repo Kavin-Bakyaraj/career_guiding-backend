@@ -12,6 +12,9 @@ import os
 import re
 import random
 
+import os
+print("SECRET_KEY:", os.getenv("SECRET_KEY"))
+
 # Get API key
 YOUTUBE_API_KEY = settings.YOUTUBE_API_KEY
 
