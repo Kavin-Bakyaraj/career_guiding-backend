@@ -12,3 +12,4 @@ tzdata==2025.2
 urllib3==2.3.0
 gunicorn
 sentence-transformers
+ollama==0.1.5
